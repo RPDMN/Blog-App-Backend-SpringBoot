@@ -1,10 +1,15 @@
 package com.ripudamanSingh.blog.blogappapi.controllers;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationContext;
 import com.ripudamanSingh.blog.blogappapi.config.AppConstants;
+import com.ripudamanSingh.blog.blogappapi.entities.User;
 import com.ripudamanSingh.blog.blogappapi.payloads.ApiResponse;
 import com.ripudamanSingh.blog.blogappapi.payloads.PostResponse;
 import com.ripudamanSingh.blog.blogappapi.services.FileService;
 import org.modelmapper.ModelMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -18,7 +23,7 @@ import com.ripudamanSingh.blog.blogappapi.payloads.PostDto;
 import com.ripudamanSingh.blog.blogappapi.services.PostService;
 import com.ripudamanSingh.blog.blogappapi.entities.Post;
 import org.springframework.web.multipart.MultipartFile;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -34,6 +39,9 @@ public class PostController {
 
     @Autowired
     private FileService fileService;
+
+    @Autowired
+    private ObjectMapper mapper;
 
     @Value("${project.image}")
     private String path;
@@ -123,5 +131,37 @@ public class PostController {
         StreamUtils.copy(resource,response.getOutputStream());
     }
 
+    private Logger logger = LoggerFactory.getLogger(PostController.class);
 
+     @PostMapping("/user/{userId}/category/{categoryId}/imageplusdata")
+    public ResponseEntity<?> imagePluseData(
+            @PathVariable Integer userId,
+            @PathVariable Integer categoryId,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("postData") String postData
+     ) throws IOException {
+         this.logger.info("add user request");
+         logger.info("File information {}",file.getOriginalFilename());
+         logger.info("post : {}",postData);
+
+       //converting string into json
+
+//        try{
+//            PostDto post = mapper.readValue(postData,PostDto.class);
+//        }catch(Exception e){
+//           return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid Request");
+//        }
+
+         PostDto postDto = null;
+         postDto = mapper.readValue(postData,PostDto.class);
+
+
+         this.logger.info("postDto: {}", postDto.getTitle());
+
+         PostDto postDto1 = this.postService.createPost(postDto,userId,categoryId);
+         String fileName = this.fileService.uploadImage(path,file);
+         postDto.setImageName(fileName);
+         PostDto updatePost = this.postService.updatePost(postDto,postDto1.getPostId());
+         return new ResponseEntity<PostDto>(updatePost,HttpStatus.OK);
+     }
 }
